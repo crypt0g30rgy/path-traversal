@@ -3,41 +3,71 @@ const path = require('path');
 
 const getPdfFile = async (req, res) => {
   try {
-    // Extract PDF filename from the request (e.g., passed as a query or route parameter)
     const { filename } = req.query;
 
+    console.log('[+] Incoming request');
+    console.log('[+] Raw filename parameter:', filename);
+
     if (!filename) {
+      console.log('[-] No filename provided');
       return res.status(400).json({ error: "Missing PDF filename." });
     }
 
-    // Construct the file path
-    const pdfPath = path.join(__dirname, 'pdfs', filename);
+    /*
+      🚨 VULNERABILITY INTENTIONALLY INTRODUCED 🚨
+      - No validation
+      - No sanitization
+      - Absolute paths allowed
+      - Relative traversal allowed
+    */
 
-    // Check if the file exists
+    // const pdfPath = path.join(__dirname, 'pdfs', filename);
+
+    /*
+      Work Around for nodejs path absolute traversal 
+    */
+
+    const pdfPath = filename.startsWith('/')
+  ? filename
+  : path.join(__dirname, 'pdfs', filename);
+
+    console.log('[+] Constructed file path:', pdfPath);
+
     if (!fs.existsSync(pdfPath)) {
+      console.log('[-] File does not exist:', pdfPath);
       return res.status(404).json({ error: "PDF file not found." });
     }
 
-    // Set headers to indicate file is a PDF
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    console.log('[+] File exists, streaming:', pdfPath);
 
-    // Stream the PDF file to the response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${path.basename(filename)}`
+    );
+
     const fileStream = fs.createReadStream(pdfPath);
+
+    fileStream.on('error', (err) => {
+      console.error('[-] File stream error:', err);
+      res.status(500).end();
+    });
+
     fileStream.pipe(res);
 
   } catch (error) {
+    console.error('[!] Unexpected error:', error);
 
-    // Check if the error is due to Aikido's protection
-    if (error.message && error.message.includes('Aikido firewall has blocked')) {
-      console.error('Blocked by Aikido Security:', error.message);
+    if (
+      error.message &&
+      error.message.includes('Zen has blocked a path traversal attack:')
+    ) {
+      console.error('[!] Blocked by Zen Security');
       return res.status(403).json({ error: "Blocked by Security." });
-  }
+    }
 
-  // Log and return a 500 error for all other errors
-    console.error("Error returning PDF file:", error);
     res.status(500).json({ error: "Error fetching the PDF file." });
   }
 };
 
-module.exports = { getPdfFile }
+module.exports = { getPdfFile };

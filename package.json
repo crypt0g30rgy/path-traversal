@@ -16,7 +16,7 @@
   "author": "crypt0g30rgy",
   "license": "ISC",
   "dependencies": {
-    "@aikidosec/firewall": "1.5.66",
+    "@aikidosec/firewall": "^1.8.12",
     "axios": "^1.7.7",
     "cheerio": "^1.0.0",
     "crypto": "^1.0.1",
